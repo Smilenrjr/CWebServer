@@ -3,10 +3,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <signal.h>
 #include <errno.h>
+#include <stdint.h>
 
 #define PORT 8000
 volatile sig_atomic_t keep_running = 1;
@@ -47,13 +49,33 @@ char *read_html_file(const char *fn, long *out_fs) {
 	return buf;
 }
 
+char *makeHTTPHeader(char* status, char* type, long fs) {
+	char *header = malloc(512);
+
+	if (header == NULL) {
+		perror("memory allocation failed for header");
+		return NULL;
+	}
+
+	int header_len = snprintf(header, 512,
+			"HTTP/1.1 %s\r\n"
+			"Server: WebServer/1.0\r\n"
+			"Content-Type: %s; charset=UTF-8\r\n"
+			"Content-Length: %ld\r\n"
+			"Connection: close\r\n"
+			"\r\n",
+			status, type, fs
+	);
+	return header;
+}
+
 
 int main(int argc, char const* argv[])
 {
-	if (argc < 2) {
-		perror("need file arg");
-		exit(EXIT_FAILURE);
-	}
+	// if (argc < 2) {
+	// 	perror("need file arg");
+	// 	exit(EXIT_FAILURE);
+	// }
 	struct sigaction sa;
 	sa.sa_handler = handle_sigint;
 	sigemptyset(&sa.sa_mask);
@@ -107,40 +129,48 @@ int main(int argc, char const* argv[])
 			ptr++;
 	    	}
 
-	    	long file_size = 0;
-	    	char *html_content = read_html_file(argv[1], &file_size);
-	    	if (html_content == NULL) {
-			const char *not_found =
-				"HTTP/1.1 404 Not Found\r\n"
-				"Content-Type: text/plain\r\n"
-				"Content-Length: 9\r\n"
-				"Connection: close\r\n"
-				"\r\n"
-				"Not Found";
-			send(conn_socket, not_found, strlen(not_found), 0);
-			perror("cannot read file");
-			exit(EXIT_FAILURE);
-	    	}
+		buf[strcspn(buf, "\r\n")] = '\0';
+		char *fields[2] = {NULL, NULL};
+		int ind = 0;
+		for (char *tok = strtok(buf, " "); tok != NULL && ind < 2; tok = strtok(NULL, " ")) {
+			fields[ind++] = tok;
+		}
 
-		char header_buffer[512];
+		if (ind != 2) {
+			fprintf(stderr, "expected method and destination\n");
+			close(conn_socket);
+			continue;
+		}
+		
+		printf("method %s: dir %s\n", fields[0], fields[1]);
 
-		int header_len = snprintf(header_buffer, sizeof(header_buffer),
-				"HTTP/1.1 200 OK\r\n"
-				"Server: WebServer/1.0\r\n"
-				"Content-Type: text/html; charset=UTF-8\r\n"
-				"Content-Length: %ld\r\n"
-				"Connection: close\r\n"
-				"\r\n",
-				file_size
-		);
-	    	
-		// Send HTTP headers
-		send(conn_socket, header_buffer, header_len, 0);
+		if(strncmp(fields[0], "GET", strlen("GET")) == 0) {
+			long file_size = 0;
+			char *html_content = read_html_file(fields[1] + 1, &file_size);
+			if (html_content == NULL) {
+				const char *not_found = makeHTTPHeader("200 OK", "text/html", 9);
+				send(conn_socket, not_found, strlen(not_found), 0);
+				perror("cannot read file");
+				exit(EXIT_FAILURE);
+			}
 
-		// Send HTML file content
-		send(conn_socket, html_content, file_size, 0);
+			char *header = makeHTTPHeader("200 OK", "text/html", file_size);
 
-		free(html_content);
+			// Send HTTP headers
+			send(conn_socket, header, strlen(header), 0);
+
+			// Send HTML file content
+			send(conn_socket, html_content, file_size, 0);
+
+			free(html_content);
+		} else if(strncmp(fields[0], "POST", strlen(fields[0])) == 0) {
+			char *header = makeHTTPHeader("200 OK", "text/html", 0);
+
+			// Send HTTP headers
+			send(conn_socket, header, strlen(header), 0);
+		} else {
+			printf("Request Error. Try Again.\n");
+		}
 
 	    	// closing the connected socket
 	    	close(conn_socket);
