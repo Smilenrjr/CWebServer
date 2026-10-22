@@ -11,7 +11,8 @@ How to Use:
 3. Use `make`  
 4. Open a browser and go to either: 
 	- *http://localhost:8000/*   
-	- *http://localhost:8000/{ your html page }*  
+	- *http://localhost:8000/{your html page}*  
+
 You should see your webpage!  
 
 Version 0.0.0: Initial HTTP Web Server Code.  
