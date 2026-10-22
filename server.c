@@ -9,6 +9,7 @@
 #include <signal.h>
 #include <errno.h>
 #include <stdint.h>
+#include <dirent.h>
 
 #define PORT 8000
 volatile sig_atomic_t keep_running = 1;
@@ -146,9 +147,26 @@ int main(int argc, char const* argv[])
 
 		if(strncmp(fields[0], "GET", strlen("GET")) == 0) {
 			long file_size = 0;
-			char *html_content = read_html_file(fields[1] + 1, &file_size);
+			char *html_content = NULL;
+			if (strlen(fields[1]) == 1) {
+				struct dirent *de;
+				DIR *dr = opendir(".");
+				if (dr == NULL) {
+					perror("could not open dir");
+				} else {
+					while ((de = readdir(dr)) != NULL) {
+						if (strstr(de->d_name, ".html") != NULL) {
+							html_content = read_html_file(de->d_name, &file_size);
+						}
+					}
+					closedir(dr);
+				}
+			}
+			if (strlen(fields[1]) > 1){
+				html_content = read_html_file(fields[1] + 1, &file_size);
+			}
 			if (html_content == NULL) {
-				const char *not_found = makeHTTPHeader("200 OK", "text/html", 9);
+				const char *not_found = makeHTTPHeader("404 Not Found", "text/html", 9);
 				send(conn_socket, not_found, strlen(not_found), 0);
 				perror("cannot read file");
 				exit(EXIT_FAILURE);
