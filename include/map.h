@@ -5,22 +5,7 @@
 #define MAXSIZE 100
 #define MAXSTRSIZE 32
 
-// defines non-generic map (may indulge myself in recreating generics in C later)
-struct Map {
-	int size;
-	char* keys[MAXSIZE];
-	char* values[MAXSIZE];
-};
 
-
-int map_getIndex(struct Map map, char* key);
-void map_insert(struct Map* map, char* key, char* value);
-void map_init(struct Map* map, char* keys[MAXSIZE], char* values[MAXSIZE], int newSize);
-char* map_get(struct Map map, char* key);
-void map_printMap(struct Map map);
-
-
-// A better approach might be to have:
 //
 // Map: {key: value}
 // { {key: {values}}, {key: {values}}, {key: {values}} }

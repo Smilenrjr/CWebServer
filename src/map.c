@@ -1,56 +1,5 @@
 #include <map.h>
 
-int map_getIndex(struct Map map, char* key) {
-	for (int i = 0; i < map.size; i++) {
-		if (strncmp(map.keys[i], key, MAXSTRSIZE) == 0) {
-			return i;
-		}
-	}
-	return -1;
-}
-
-
-void map_insert(struct Map* map, char* key, char* value) {
-	int idx = map_getIndex(*map, key);
-	if (idx == -1) {
-		map->keys[map->size] = (char *)malloc(sizeof(char) * MAXSTRSIZE);
-		strncpy(map->keys[map->size], key, MAXSTRSIZE);
-		map->values[map->size] = (char *)malloc(sizeof(char) * MAXSTRSIZE);
-		strncpy(map->values[map->size], value, MAXSTRSIZE);
-		map->size++;
-	} else {
-		// for this implementation, if key already assigned to a value, reassign. 
-		// TODO: Make each value an arrays so keys can store multiple values
-		strncpy(map->values[idx], value, MAXSTRSIZE);
-	}
-}
-
-
-void map_init(struct Map* map, char* keys[MAXSIZE], char* values[MAXSIZE], int newSize) {
-	for (int i = 0; i < newSize; i++) {
-		map_insert(map, keys[i], values[i]);
-		// strncpy(map->keys[i], keys[i], MAXSTRSIZE);
-		// strncpy(map->values[i], values[i], MAXSTRSIZE);
-	}
-}
-
-
-char* map_get(struct Map map, char* key) {
-	int idx = map_getIndex(map, key);
-	if (idx == -1) return NULL;
-	else return map.values[idx];
-}
-
-
-void map_printMap(struct Map map) {
-	for (int i = 0; i < map.size; i++) {
-		printf("%s: %s\n", map.keys[i], map.values[i]);
-	}
-}
-
-
-
-// Alternate Implementation:
 
 int keymap_getIndex(struct KeyMap map, char* key) {
 	for (int i = 0; i < map.size; i++) {

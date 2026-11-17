@@ -156,30 +156,6 @@ int main(int argc, char const* argv[])
 	sa.sa_flags = 0;
 	sigaction(SIGINT, &sa, NULL);
 
-	// TESTING MAP
-	struct KeyMap map;
-	struct Values values;
-	char **keys;
-	keymap_init(&map, keys, &values, 0);
-	keymap_insert(&map, "md", "text/plain");
-	keymap_insert(&map, "txt", "text/plain");
-	keymap_insert(&map, "html", "text/html");
-	keymap_insert(&map, "js", "text/javascript");
-	values = keymap_get(map, "js");
-	printf("%s\n", values._val[0].value);
-	keymap_printMap(map);
-	keymap_free(&map);
-	long out;
-	char* test;
-	char* fn = (char *)malloc(sizeof(char) * MAXDIRSIZE);
-	strcpy(fn, "index");
-	char* type = (char *)malloc(sizeof(char) * 128);
-	test = readFile(fn, &out, &type);
-	printf("\nfile: %s\n", test);
-	free(test);
-	free(type);
-	free(fn);
-	// END TESTING
 
 	int server_fd, conn_socket;
 	struct sockaddr_in address;
@@ -275,7 +251,6 @@ int main(int argc, char const* argv[])
 			char* type = (char *)malloc(sizeof(char) * SOTYPE);
 			char* header;
 			if (strlen(fields[1]) == 1) {
-				// findHTMLFile(&html_content, &file_size);
 				html_content = readFile(fields[1], &file_size, &type);
 			}
 
