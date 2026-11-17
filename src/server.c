@@ -33,6 +33,7 @@ char *makeHTTPHeader(char* status, char* type, long fs) {
 }
 
 
+// TODO: Handle POST requests
 void readPostBody(int conn_socket, int len) {
 	if (len <= 0) return;
 
@@ -153,20 +154,26 @@ int main(int argc, char const* argv[])
 		}
 
 		// parse HTTP req method and HTTP req filename
-		// TODO: rewrite this without strtok.
+		// TODO: Rewrite this without strtok.
+		//       Put all content parsing in separate file
 		//
 		// buf[strcspn(buf, "\r\n")] = ' ';
 		char *fields[2] = {NULL, NULL};
 		int ind = 0;
 		int content_len = 0;
-		for (char *tok = strtok(buf, " "); tok != NULL; tok = strtok(NULL, " ")) {
+		char *content_type = NULL;
+		char *post_body = NULL;
+		char *_ptr = NULL;
+		for (char *tok = strtok(buf, " "); tok != NULL; tok = strtok(NULL, "\r\n")) {
 			if (ind < 2) {
 				fields[ind++] = tok;
+				fields[ind++] = strtok(NULL, " ");
 			}
 
 			// parse HTTP req Content-Length
-			if (strstr(tok, "Content-Length:") != NULL) {
-				tok = strtok(NULL, "\r\n");
+			if ((_ptr = strstr(tok, "Content-Length:")) != NULL) {
+				// tok = strtok(NULL, "\r\n");
+				tok = _ptr + strlen("Content-Length: ");
 				// convert char* to int only if valid
 				char *endptr;
 				errno = 0;
@@ -179,6 +186,17 @@ int main(int argc, char const* argv[])
 					content_len = (int)val;
 				}
 			}
+
+			// parse HTTP req Content-Type
+			if ((_ptr = strstr(tok, "Content-Type:")) != NULL) {
+				content_type = _ptr + strlen("Content-Type: ");//strtok(NULL, "\r\n");
+			}
+
+			// parse HTTP req POST body
+			if ((_ptr = strstr(tok, "name"))!= NULL) {
+				post_body = tok; //strtok(NULL, "\r\n");
+			}
+			
 		}
 
 		if (ind != 2) {
@@ -187,9 +205,11 @@ int main(int argc, char const* argv[])
 			continue;
 		}
 		
-		printf("--- method: %s --- dir: %s ---\r\n\r\n", fields[0], fields[1]);
+		printf("\r\n\r\n--- method: %s --- dir: %s ---\r\n\r\n", fields[0], fields[1]);
 
 		printf("--- Content-Length: %d ---\r\n\r\n", content_len);
+		printf("--- Content-Type: %s ---\r\n\r\n", content_type);
+		printf("--- POST Body: %s ---\r\n\r\n", post_body);
 
 
 		if(strncmp(fields[0], "GET", strlen("GET")) == 0) {
@@ -260,7 +280,7 @@ int main(int argc, char const* argv[])
 		} else if(strncmp(fields[0], "POST", strlen(fields[0])) == 0) {
 			char *header = makeHTTPHeader("200 OK", "text/html", 0);
 
-			readPostBody(conn_socket, content_len);
+			// readPostBody(conn_socket, content_len);
 			printf("Done Reading Body\r\n\r\n");
 			//TODO: Need a way to update server resources from
 			// 	valid POST requests.
