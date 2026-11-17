@@ -11,45 +11,6 @@ void handle_sigint(int sig) {
 }
 
 
-char *read_html_file(const char *fn, long *out_fs) {
-	FILE *fp;
-	if (strstr(fn, ".") == NULL) {
-		size_t sz = sizeof(fn) + sizeof(".html");
-		char *dst = malloc(sz);
-		strncpy(dst, fn, sz);
-		char *file = strcat(dst, ".html");
-		printf("file: %s\n", dst);
-		fp = fopen(file, "rb");
-	} else {
-		fp = fopen(fn, "rb");
-	}
-	// fp = fopen(fn, "rb");
-	if (fp == NULL) {
-		perror("unable to open file");
-		return NULL;
-	}
-
-	fseek(fp, 0, SEEK_END);
-	long fs = ftell(fp);
-	rewind(fp);
-
-	char *buf = malloc(fs + 1);
-	if (buf == NULL) {
-		perror("Memory allocation failed");
-		fclose(fp);
-		return NULL;
-	}
-
-	size_t bytes_read = fread(buf, 1, fs, fp);
-	buf[bytes_read] = '\0';
-
-	fclose(fp);
-	if(out_fs) {
-		*out_fs = (long)bytes_read;
-	}
-
-	return buf;
-}
 
 char *makeHTTPHeader(char* status, char* type, long fs) {
 	char *header = malloc(HEADER_SIZE);
@@ -128,20 +89,6 @@ char** parseQuery(char* query) {
 }
 
 
-void findHTMLFile(char **content, long *out_fs) {
-	struct dirent *de;
-	DIR *dr = opendir(".");
-	if (dr == NULL) {
-		perror("could not open dir");
-	} else {
-		while ((de = readdir(dr)) != NULL) {
-			if (strstr(de->d_name, ".html") != NULL) {
-				*content = read_html_file(de->d_name, out_fs);
-			}
-		}
-		closedir(dr);
-	}
-}
 
 
 int main(int argc, char const* argv[])
@@ -266,20 +213,19 @@ int main(int argc, char const* argv[])
 					if (_attributes != NULL) {	// If query contains attributes
 						if (*_attributes != NULL) {	// are there attributes?
 							if (strlen(*_attributes) == 1) {	// if no dest given
-								findHTMLFile(&html_content, &file_size);
-							} else html_content = read_html_file(*_attributes + 1, &file_size);	// else try dest
+								html_content = readFile(*_attributes, &file_size, &type);
+							} else html_content = readFile(*_attributes+1, &file_size, &type);	// else try dest
 							printf("destination: %s\n", *_attributes + 1);
 						} else isCont = 0;	// no contents specified
-						while (*_attributes != NULL) {
-							printf("attributes: %s\n", *_attributes++);
-						}
+						// while (*_attributes != NULL) {
+						// 	printf("attributes: %s\n", *_attributes++);
+						// }
 						free(_attributes);
 					} else {	// no attributes
 						printf("attributes null\n");
 						isCont = 0;
 					}
 				} else {	// try header dest field
-					// html_content = read_html_file(fields[1] + 1, &file_size);	
 					html_content = readFile(fields[1] + 1, &file_size, &type);	
 				}
 			}

@@ -19,8 +19,6 @@
 #define HEADER_SIZE 1024
 
 void handle_sigint(int sig);
-char *read_html_file(const char *fn, long *out_fs);
 char *makeHTTPHeader(char* status, char* type, long fs);
 void readPostBody(int conn_socket, int len);
 char **parseQuery(char* query);
-void findHTMLFile(char **content, long *out_fs);
