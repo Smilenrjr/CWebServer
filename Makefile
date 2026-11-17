@@ -2,17 +2,30 @@
 SHELL=/bin/bash
 TARGET = server
 SOURCE = server.c
-CC = gcc
-CFLAGS = -g
 BUILD_DIR = ./build
-SRC_DIR = .
+SRC_DIR = ./src
+INCLUDE_PATH = ./include
+CC = gcc
+CFLAGS = -g -fsanitize=address -fno-omit-frame-pointer
+INCFLAGS = $(addprefix -I,$(INCLUDE_PATH))
+
+C_FILES := $(wildcard src/*.c)
+HEADER_FILES := $(wildcard include/*.h)
+OBJ_FILES := $(patsubst %.c,%.o,$(C_FILES))
+
 #PAGE ?= $(shell bash -c 'read -p "Page: " page; echo $$page')
 
-all: $(SOURCE)
-	$(CC) $(CFLAGS) $(SRC_DIR)/$(SOURCE) -o $(BUILD_DIR)/$(TARGET)
-	cd $(BUILD_DIR); trap "echo [CLEANUP]; rm -f $(TARGET); exit 1" SIGINT; \
+
+all: $(TARGET)
+	cd $(BUILD_DIR); trap "echo [CLEANUP]; cd ..; make clean; exit 1" SIGINT; \
 	./$(TARGET)
 
-.PHONY: clean
+%.o: %.c $(HEADER_FILES)
+	$(CC) $(CFLAGS) $(INCFLAGS) -c $< -o $@
+
+$(TARGET): $(OBJ_FILES) 
+	$(CC) $(CFLAGS) $(INCFLAGS) -o $(BUILD_DIR)/$@ $(OBJ_FILES)
+
 clean:
-	rm -f $(TARGET)
+	rm $(OBJ_FILES)
+	rm $(BUILD_DIR)/$(TARGET)
