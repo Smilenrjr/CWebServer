@@ -1,6 +1,7 @@
 #include <server.h>
 #include <map.h>
 #include <file.h>
+#include <parse.h>
 
 volatile sig_atomic_t keep_running = 1;
 
@@ -33,31 +34,6 @@ char *makeHTTPHeader(char* status, char* type, long fs) {
 }
 
 
-// TODO: Handle POST requests
-void readPostBody(int conn_socket, int len) {
-	if (len <= 0) return;
-
-	char *body = (char *)malloc(len + 1);
-	if (!body) {
-		perror("failed to allocate memory");
-		return;
-	}
-
-	int total_bytes_read = 0;
-	while(total_bytes_read < len) {
-		ssize_t bytes_read = recv(conn_socket, body + total_bytes_read, len - total_bytes_read, 0);
-
-		if (bytes_read <= 0) {
-			break;
-		}
-
-		total_bytes_read += bytes_read;
-	}
-
-	body[len] = '\0';
-	printf("Received POST body: %s\n", body);
-	free(body);
-}
 
 char** parseQuery(char* query) {
 	char **_attributes = (char **)malloc(QUERY_SIZE);
@@ -142,7 +118,6 @@ int main(int argc, char const* argv[])
 				break;
 			}
 			perror("accept");
-			exit(EXIT_FAILURE);
 	    	}
 	  
 		read(conn_socket, buf, 1023);
@@ -153,83 +128,35 @@ int main(int argc, char const* argv[])
 			ptr++;
 		}
 
-		// parse HTTP req method and HTTP req filename
-		// TODO: Rewrite this without strtok.
-		//       Put all content parsing in separate file
-		//
-		// buf[strcspn(buf, "\r\n")] = ' ';
-		char *fields[2] = {NULL, NULL};
-		int ind = 0;
-		int content_len = 0;
-		char *content_type = NULL;
-		char *post_body = NULL;
-		char *_ptr = NULL;
-		for (char *tok = strtok(buf, " "); tok != NULL; tok = strtok(NULL, "\r\n")) {
-			if (ind < 2) {
-				fields[ind++] = tok;
-				fields[ind++] = strtok(NULL, " ");
-			}
+		struct RequestHeader *reqHeader;
+		char tempbuf[1024] = { 0 };
+		memcpy(tempbuf, buf, 1024);
+		*reqHeader = parseHeader(tempbuf);
 
-			// parse HTTP req Content-Length
-			if ((_ptr = strstr(tok, "Content-Length:")) != NULL) {
-				// tok = strtok(NULL, "\r\n");
-				tok = _ptr + strlen("Content-Length: ");
-				// convert char* to int only if valid
-				char *endptr;
-				errno = 0;
-				long val = strtol(tok, &endptr, 10);
-				if ((errno == ERANGE && (val == LONG_MAX || val == LONG_MIN)) || (val > INT_MAX || val < INT_MIN)) {
-					perror("Error Fetching Content-Length: Buffer Overflow");
-				} else if (endptr == tok) {
-					perror("Error: No Content-Length");
-				} else {
-					content_len = (int)val;
-				}
-			}
-
-			// parse HTTP req Content-Type
-			if ((_ptr = strstr(tok, "Content-Type:")) != NULL) {
-				content_type = _ptr + strlen("Content-Type: ");//strtok(NULL, "\r\n");
-			}
-
-			// parse HTTP req POST body
-			if ((_ptr = strstr(tok, "name"))!= NULL) {
-				post_body = tok; //strtok(NULL, "\r\n");
-			}
-			
-		}
-
-		if (ind != 2) {
+		if (reqHeader->method == NULL || reqHeader->dest == NULL) {
 			fprintf(stderr, "expected method and destination\n");
 			close(conn_socket);
-			continue;
 		}
-		
-		printf("\r\n\r\n--- method: %s --- dir: %s ---\r\n\r\n", fields[0], fields[1]);
-
-		printf("--- Content-Length: %d ---\r\n\r\n", content_len);
-		printf("--- Content-Type: %s ---\r\n\r\n", content_type);
-		printf("--- POST Body: %s ---\r\n\r\n", post_body);
 
 
-		if(strncmp(fields[0], "GET", strlen("GET")) == 0) {
+		if(reqHeader->method != NULL && strncmp(reqHeader->method, "GET", strlen("GET")) == 0) {
 			long file_size = 0;
 			char *html_content = NULL;
 			char* type = (char *)malloc(sizeof(char) * SOTYPE);
 			char* header;
-			if (strlen(fields[1]) == 1) {
-				html_content = readFile(fields[1], &file_size, &type);
+			if (strlen(reqHeader->dest) == 1) {
+				html_content = readFile(reqHeader->dest, &file_size, &type);
 			}
 
 			int isCont = 1;
 			// TODO: get any file type specified (i.e. JS, PHP, PDF, etc)
-			if (strlen(fields[1]) > 1){
-				if (strncmp(fields[1] + 1, "favicon.ico", strlen(fields[1]+1)) == 0) {	// TODO: parse favicon request.
+			if (strlen(reqHeader->dest) > 1){
+				if (strncmp(reqHeader->dest + 1, "favicon.ico", strlen(reqHeader->dest+1)) == 0) {	// TODO: parse favicon request.
 					isCont = 0;
-				} else if (strchr(fields[1] + 1, '?') != NULL) {	// TODO: parse query with attributes
+				} else if (strchr(reqHeader->dest + 1, '?') != NULL) {	// TODO: parse query with attributes
 					//isCont = 0;
 					char **_attributes;
-					_attributes = parseQuery(fields[1]);
+					_attributes = parseQuery(reqHeader->dest);
 					if (_attributes != NULL) {	// If query contains attributes
 						if (*_attributes != NULL) {	// are there attributes?
 							if (strlen(*_attributes) == 1) {	// if no dest given
@@ -246,7 +173,7 @@ int main(int argc, char const* argv[])
 						isCont = 0;
 					}
 				} else {	// try header dest field
-					html_content = readFile(fields[1] + 1, &file_size, &type);	
+					html_content = readFile(reqHeader->dest + 1, &file_size, &type);	
 				}
 			}
 
@@ -277,22 +204,31 @@ int main(int argc, char const* argv[])
 
 			free(html_content);
 			free(type);
-		} else if(strncmp(fields[0], "POST", strlen(fields[0])) == 0) {
-			char *header = makeHTTPHeader("200 OK", "text/html", 0);
+		} else if(strncmp(reqHeader->method, "POST", strlen(reqHeader->method)) == 0) {
 
 			// readPostBody(conn_socket, content_len);
-			printf("Done Reading Body\r\n\r\n");
+			// printf("Done Reading Body\r\n\r\n");
+
+			char *resp = (char *)malloc(sizeof(char) * 1024);
+			snprintf(resp, sizeof(char)*1024, "<!DOCTYPE html><html><head>Welcome %s!</head></html>", reqHeader->reqPL->value);
+			char *header = makeHTTPHeader("200 OK", "text/html", strlen(resp));
+
+			while (strlen(reqHeader->reqPL->field) > 0) {
+				printf("\nfield: %s -- value: %s\n", reqHeader->reqPL->field, reqHeader->reqPL->value);
+				reqHeader->reqPL++;
+			}
+
 			//TODO: Need a way to update server resources from
 			// 	valid POST requests.
 			//
-			// if (strlen(fields[1]) > 1) {
+			// if (strlen(reqHeader->dest[1]) > 1) {
 			// 	struct dirent *de;
 			// 	DIR *dr = opendir(".");
 			// 	if (dr == NULL) {
 			// 		perror("could not open dir");
 			// 	} else {
 			// 		while ((de = readdir(dr)) != NULL) {
-			// 			if (strcmp(de->d_name, fields[1] + 1) == 0) {
+			// 			if (strcmp(de->d_name, reqHeader->dest[1] + 1) == 0) {
 			// 				system(strcat("./", de->d_name));
 			// 			}
 			// 		}
@@ -302,7 +238,9 @@ int main(int argc, char const* argv[])
 
 			// Send HTTP headers
 			send(conn_socket, header, strlen(header), 0);
+			send(conn_socket, resp, strlen(resp), 0);
 			free(header);
+			free(resp);
 		} else {
 			printf("Request Error. Try Again.\n");
 		}

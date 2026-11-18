@@ -20,5 +20,4 @@
 
 void handle_sigint(int sig);
 char *makeHTTPHeader(char* status, char* type, long fs);
-void readPostBody(int conn_socket, int len);
 char **parseQuery(char* query);

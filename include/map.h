@@ -21,22 +21,20 @@ struct _Values {
 
 
 struct _Keys {
-	char *key;
+	char* key;
 };
 
 
 struct Values {
 	int size;	// size of values array
-	// char **_val;
-	struct _Values *_val;
+	struct _Values* _val;
 };
 
 
 struct KeyMap {
 	int size;	// size of map
-	// char **keys;
-	struct _Keys *keys;
-	struct Values *values;
+	struct _Keys* keys;
+	struct Values* values;
 };
 
 int keymap_getIndex(struct KeyMap map, char* key);

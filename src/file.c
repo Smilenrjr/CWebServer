@@ -27,10 +27,10 @@ char *findFile(const char *fn) {
 
 char *readFile(const char *fn, long *out_fs, char **type) {
 	// see RFC-6838 and https://www.iana.org/assignments/media-types
-	struct Values types[] = {{1, &(struct _Values){"text/html"}}, {1, &(struct _Values){"text/javascript"}}, {1, &(struct _Values){"text/plain"}}};	// add content types as needed
-	char *exts[3] = {"html", "js", "txt"};		// add file extensions as needed
+	struct Values types[] = {{1, &(struct _Values){"text/html"}}, {1, &(struct _Values){"text/javascript"}}, {1, &(struct _Values){"text/plain"}}, {1, &(struct _Values){"application/pdf"}}, {1, &(struct _Values){"image/jpeg"}}};	// add content types as needed
+	char *exts[5] = {"html", "js", "txt", "pdf", "jpg"};		// add file extensions as needed
 	struct KeyMap map;
-	keymap_init(&map, exts, types, 3);
+	keymap_init(&map, exts, types, 5);
 	// keymap_insert(&map, "md", "text/plain");
 	keymap_printMap(map);
 
