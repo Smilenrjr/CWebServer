@@ -210,7 +210,7 @@ int main(int argc, char const* argv[])
 			// printf("Done Reading Body\r\n\r\n");
 
 			char *resp = (char *)malloc(sizeof(char) * 1024);
-			snprintf(resp, sizeof(char)*1024, "<!DOCTYPE html><html><head>Welcome %s!</head></html>", reqHeader->reqPL->value);
+			snprintf(resp, sizeof(char)*1024, "<!DOCTYPE html><html><h1>Welcome %s!</h1></html>", reqHeader->reqPL->value);
 			char *header = makeHTTPHeader("200 OK", "text/html", strlen(resp));
 
 			while (strlen(reqHeader->reqPL->field) > 0) {

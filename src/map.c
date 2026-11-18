@@ -20,7 +20,6 @@ void keymap_insert(struct KeyMap* map, char* key, char* value) {
 		val->size = 0;
 		_key->key = (char *)malloc(sizeof(char) * MAXSTRSIZE);
 		strncpy(_key->key, key, MAXSTRSIZE);
-		// val->_val = (char **)malloc(MAXSIZE);
 		val->_val = (struct _Values *)malloc(sizeof(struct _Values) * MAXSIZE);
 		struct _Values *_val = &val->_val[val->size];
 		_val->value = (char *)malloc(sizeof(char) * MAXSTRSIZE);
